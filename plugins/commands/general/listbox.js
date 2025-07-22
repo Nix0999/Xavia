@@ -1,40 +1,35 @@
 export const config = {
   name: "listbox",
-  aliases: ["boxlist", "threadlist", "groups"],
-  version: "1.0.1",
-  credits: "ArYAN",
-  description: "Show all groups the bot is in with names and UIDs.",
+  aliases: ["grouplist", "gl"],
+  version: "1.0.0",
+  description: "Show all groups the bot is in",
   usage: "{pn}",
+  credits: "ArYAN",
   cooldown: 5,
-  permissions: 2, // admin only
+  permissions: 1,
   category: "admin"
 };
 
-export async function onCall({ message, api }) {
+export async function onCall({ message, threadsData }) {
   try {
-    const threads = await api.getThreadList(100, null, ["INBOX"]); // Fetch threads
+    const allThreads = await threadsData.getAll();
+    const groupThreads = allThreads.filter(thread => thread.isGroup && thread.threadName);
 
-    const groups = threads.filter(
-      t => t.isGroup && t.name !== null && t.threadID
-    );
-
-    if (groups.length === 0) {
-      return message.reply("😕 No group found.");
+    if (groupThreads.length === 0) {
+      return message.reply("⚠️ No group data found.");
     }
 
-    // Sort by name
-    groups.sort((a, b) => a.name.localeCompare(b.name));
+    const list = groupThreads.map((thread, index) => {
+      return `📦 ${index + 1}. ${thread.threadName} \n🆔 UID: ${thread.threadID}`;
+    });
 
-    // Format output
-    const output = groups.map((g, i) => 
-      `📦 ${i + 1}. 🧁 𝙉𝙖𝙢𝙚: 『 ${g.name} 』\n🆔 𝙄𝘿: ${g.threadID}\n━━━━━━━━━━━━━`
-    ).join("\n");
+    const body = `📋 𝗕𝗢𝗧 𝗚𝗥𝗢𝗨𝗣 𝗟𝗜𝗦𝗧:\n━━━━━━━━━━━━━━━\n\n${list.join(
+      "\n\n"
+    )}\n\n📌 𝗧𝗼𝘁𝗮𝗹: ${groupThreads.length} groups`;
 
-    const finalMsg = `🎁 𝗕𝗼𝘁 𝗜𝘀 𝗜𝗻 ${groups.length} 𝗚𝗿𝗼𝘂𝗽𝘀 🎁\n━━━━━━━━━━━━━\n${output}`;
-
-    return message.reply(finalMsg);
-  } catch (err) {
-    console.error("❌ listbox error:", err);
+    return message.reply(body);
+  } catch (error) {
+    console.error("LISTBOX CMD ERROR:", error);
     return message.reply("⚠️ Something went wrong while fetching group list.");
   }
 }

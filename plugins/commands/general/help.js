@@ -12,45 +12,32 @@ const config = {
 
 const langData = {
   "en_US": {
-    "help.list": `📜✨ *Here are all my commands, cutie!* ✨📜\n\n{list}\n\n🔢 Total: *{total}* commands\n💡 Tip: Use *{syntax} [command]* to get more info about a command.`,
-    "help.commandNotExists": "❌ Oops! The command *{command}* doesn't exist.",
-    "help.commandDetails": `🛠️✨ *Command Details:* ✨🛠️
+    "help.list": `📜𝗛𝗲𝗿𝗲 𝗮𝗹𝗹 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀📜
 
-🔹 *Name:* {name}
-🔸 *Aliases:* {aliases}
-📦 *Version:* {version}
-📝 *Description:* {description}
-📚 *Usage:* {usage}
-🔐 *Permissions:* {permissions}
-🗂️ *Category:* {category}
-⏱️ *Cooldown:* {cooldown}
-👑 *Credits:* {credits}`,
-    "0": "👤 Member",
-    "1": "🛡️ Group Admin",
-    "2": "🤖 Bot Admin"
+{list}
+
+🔢 𝗧𝗼𝘁𝗮𝗹: {total} 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀
+💡 𝗨𝘀𝗲 \`{syntax} [command]\` 𝗳𝗼𝗿 𝗱𝗲𝘁𝗮𝗶𝗹𝘀.`,
+    "help.commandNotExists": "❌ The command `{command}` doesn't exist!",
+    "help.commandDetails": `📖✨ 𝗖𝗼𝗺𝗺𝗮𝗻𝗱 𝗗𝗲𝘁𝗮𝗶𝗹𝘀 ✨📖
+
+🔹 𝗡𝗮𝗺𝗲: {name}
+🔸 𝗔𝗹𝗶𝗮𝘀𝗲𝘀: {aliases}
+📦 𝗩𝗲𝗿𝘀𝗶𝗼𝗻: {version}
+📝 𝗗𝗲𝘀𝗰𝗿𝗶𝗽𝘁𝗶𝗼𝗻: {description}
+📚 𝗨𝘀𝗮𝗴𝗲: {usage}
+🔐 𝗣𝗲𝗿𝗺𝗶𝘀𝘀𝗶𝗼𝗻𝘀: {permissions}
+🗂️ 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆: {category}
+⏱️ 𝗖𝗼𝗼𝗹𝗱𝗼𝘄𝗻: {cooldown}
+👑 𝗖𝗿𝗲𝗱𝗶𝘁𝘀: {credits}`
   },
-  "vi_VN": {
-    "help.list": `📜✨ *Đây là tất cả các lệnh của tớ nè!* ✨📜\n\n{list}\n\n🔢 Tổng cộng: *{total}* lệnh\n💡 Dùng *{syntax} [lệnh]* để biết thêm chi tiết nhé.`,
-    "help.commandNotExists": "❌ Lệnh *{command}* không tồn tại.",
-    "help.commandDetails": `🛠️✨ *Chi tiết lệnh:* ✨🛠️
-
-🔹 *Tên:* {name}
-🔸 *Tên khác:* {aliases}
-📦 *Phiên bản:* {version}
-📝 *Mô tả:* {description}
-📚 *Cách dùng:* {usage}
-🔐 *Quyền hạn:* {permissions}
-🗂️ *Thể loại:* {category}
-⏱️ *Delay:* {cooldown}
-👑 *Tác giả:* {credits}`,
-    "0": "👤 Thành viên",
-    "1": "🛡️ Quản trị nhóm",
-    "2": "🤖 Quản trị bot"
-  }
+  "0": "👤 Member",
+  "1": "🛡️ Group Admin",
+  "2": "🤖 Bot Admin"
 };
 
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
 
 async function onCall({ message, args, getLang, commands, prefix }) {
   const commandName = args[0]?.toLowerCase();
@@ -63,9 +50,9 @@ async function onCall({ message, args, getLang, commands, prefix }) {
       categories[category].push(`🔸 ${command.name}`);
     }
 
-    const list = Object.entries(categories).map(
-      ([category, cmds]) => `📁 *${category}*\n${cmds.join("\n")}`
-    ).join("\n\n");
+    const list = Object.entries(categories)
+      .map(([category, cmds]) => `📁 ${category.toUpperCase()}\n${cmds.join("\n")}`)
+      .join("\n\n");
 
     return message.reply(
       getLang("help.list", {
@@ -76,8 +63,12 @@ async function onCall({ message, args, getLang, commands, prefix }) {
     );
   }
 
-  const command = commands.get(commandName) || [...commands.values()].find(cmd => cmd.aliases?.includes(commandName));
-  if (!command) return message.reply(getLang("help.commandNotExists", { command: commandName }));
+  const command = commands.get(commandName) ||
+    [...commands.values()].find(cmd => cmd.aliases?.includes(commandName));
+
+  if (!command) {
+    return message.reply(getLang("help.commandNotExists", { command: commandName }));
+  }
 
   const aliases = command.aliases?.join(", ") || "None";
   const permissions = getLang[String(command.permission || 0)] || "Unknown";
@@ -93,13 +84,9 @@ async function onCall({ message, args, getLang, commands, prefix }) {
       permissions,
       category,
       cooldown: (command.cooldown || 3) + "s",
-      credits: "Xavia || Nix"
+      credits: "Team Xavia || Nix"
     })
   );
 }
 
-module.exports = {
-  config,
-  langData,
-  onCall
-};
+export { config, langData, onCall };

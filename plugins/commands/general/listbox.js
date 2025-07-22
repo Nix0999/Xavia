@@ -1,42 +1,38 @@
 export const config = {
   name: "listbox",
-  aliases: ["threads", "groups", "boxlist"],
-  version: "1.0.0",
+  aliases: ["boxlist", "threadlist", "groups"],
+  version: "1.0.1",
   credits: "ArYAN",
-  description: "Show all groups the bot is in with names and IDs.",
+  description: "Show all groups the bot is in with names and UIDs.",
   usage: "{pn}",
   cooldown: 5,
-  permissions: 2, // Only bot admin
-  category: "admin",
+  permissions: 2, // admin only
+  category: "admin"
 };
 
-export async function onCall({ message, threadsData }) {
+export async function onCall({ message, api }) {
   try {
-    const allThreads = await threadsData.getAll(); // Get all threads
+    const threads = await api.getThreadList(100, null, ["INBOX"]); // Fetch threads
 
-    if (!allThreads || allThreads.length === 0) {
-      return message.reply("😔 No group found.");
-    }
+    const groups = threads.filter(
+      t => t.isGroup && t.name !== null && t.threadID
+    );
 
-    // Filter group threads (type = 1)
-    const groupThreads = allThreads.filter(thread => thread.threadID && thread.threadName && thread.isGroup);
-
-    if (groupThreads.length === 0) {
-      return message.reply("😔 No active group threads found.");
+    if (groups.length === 0) {
+      return message.reply("😕 No group found.");
     }
 
     // Sort by name
-    groupThreads.sort((a, b) => a.threadName.localeCompare(b.threadName));
+    groups.sort((a, b) => a.name.localeCompare(b.name));
 
-    // Build fancy output
-    const listText = groupThreads.map((t, i) => {
-      const number = i + 1;
-      return `📦 ${number}. 𝙉𝙖𝙢𝙚: 『 ${t.threadName} 』\n🆔 ID: ${t.threadID}\n━━━━━━━━━━━━━`;
-    }).join("\n");
+    // Format output
+    const output = groups.map((g, i) => 
+      `📦 ${i + 1}. 🧁 𝙉𝙖𝙢𝙚: 『 ${g.name} 』\n🆔 𝙄𝘿: ${g.threadID}\n━━━━━━━━━━━━━`
+    ).join("\n");
 
-    const msg = `🎁 𝗕𝗼𝘅𝗲𝘀 𝗧𝗵𝗲 𝗕𝗼𝘁 𝗜𝘀 𝗜𝗻 🎁\n━━━━━━━━━━━━━\n${listText}\n\n📌 Total: ${groupThreads.length} Groups`;
+    const finalMsg = `🎁 𝗕𝗼𝘁 𝗜𝘀 𝗜𝗻 ${groups.length} 𝗚𝗿𝗼𝘂𝗽𝘀 🎁\n━━━━━━━━━━━━━\n${output}`;
 
-    return message.reply(msg);
+    return message.reply(finalMsg);
   } catch (err) {
     console.error("❌ listbox error:", err);
     return message.reply("⚠️ Something went wrong while fetching group list.");

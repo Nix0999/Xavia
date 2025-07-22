@@ -15,16 +15,32 @@ const langData = {
 
 import axios from 'axios';
 
+async function resolveRedirectUrl(shortUrl) {
+    try {
+        const response = await axios.get(shortUrl, {
+            maxRedirects: 0,
+            validateStatus: status => status >= 200 && status < 400
+        });
+
+        return shortUrl; // No redirect, return original
+    } catch (error) {
+        if (error.response && error.response.headers.location) {
+            return error.response.headers.location;
+        }
+        return shortUrl; // Failed to resolve, return original
+    }
+}
+
 async function downloadTikTok(url) {
     try {
         const response = await axios.get('https://tikwm.com/api/', {
             params: { url }
         });
-        
+
         if (response.data.code !== 0) {
             throw new Error();
         }
-        
+
         return {
             success: true,
             data: response.data.data
@@ -40,11 +56,11 @@ async function downloadFacebook(url) {
     try {
         const encodedUrl = encodeURIComponent(url);
         const response = await axios.get(`https://rapido.zetsu.xyz/api/fbdl?url=${encodedUrl}`);
-        
+
         if (!response.data || !response.data.url) {
             throw new Error();
         }
-        
+
         return {
             success: true,
             data: response.data
@@ -57,49 +73,52 @@ async function downloadFacebook(url) {
 }
 
 function isTikTokUrl(url) {
-    const tiktokRegex = /^(https?:\/\/)?(www|vm|vt\.)?(tiktok\.com)\/[^\s]+$/;
+    const tiktokRegex = /^(https?:\/\/)?(www\.|vm\.|vt\.)?(tiktok\.com)\/[^\s]+$/;
     return tiktokRegex.test(url);
 }
 
 function isFacebookUrl(url) {
-    const facebookRegex = /^(https?:\/\/)?(m|mtouch|www\.)?(facebook\.com|fb\.watch|fb\.com)\/[^\s]+$/;
+    const facebookRegex = /^(https?:\/\/)?(m\.|mtouch\.|www\.|fb\.|fb\.watch)?(facebook\.com|fb\.watch|fb\.com)\/[^\s]+$/;
     return facebookRegex.test(url);
 }
 
 async function onCall({ message, getLang, data }) {
     const inputText = message.body;
-    
+
     if (message.senderID === global.botID) {
         return;
     }
-    
+
     let url = null;
-    
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const matches = inputText.match(urlRegex);
-    
+
     if (matches && matches.length > 0) {
         url = matches[0];
     }
-    
+
     if (!url) {
         return;
     }
-    
+
     if (isTikTokUrl(url)) {
         message.react("⏳");
+
+        // 🔁 Resolve short TikTok links like vm.tiktok.com
+        url = await resolveRedirectUrl(url);
+
         const result = await downloadTikTok(url);
-        
+
         if (result.success) {
             const videoData = result.data;
-            
+
             try {
                 const stream = await axios({
                     method: 'get',
                     url: videoData.play,
                     responseType: 'stream'
                 });
-                
+
                 await message.reply({
                     body: getLang("download.tiktok.success", {
                         title: videoData.title,
@@ -110,26 +129,25 @@ async function onCall({ message, getLang, data }) {
                 message.react("✅");
             } catch (error) {
                 message.react("❌");
-                return;
             }
         } else {
             message.react("❌");
-            return;
         }
     } else if (isFacebookUrl(url)) {
         message.react("⏳");
+
         const result = await downloadFacebook(url);
-        
+
         if (result.success) {
             const videoData = result.data;
-            
+
             try {
                 const stream = await axios({
                     method: 'get',
                     url: videoData.url,
                     responseType: 'stream'
                 });
-                
+
                 await message.reply({
                     body: getLang("download.facebook.success", {
                         title: videoData.title || "Facebook Video"
@@ -139,14 +157,12 @@ async function onCall({ message, getLang, data }) {
                 message.react("✅");
             } catch (error) {
                 message.react("❌");
-                return;
             }
         } else {
             message.react("❌");
-            return;
         }
     }
-    
+
     return;
 }
 

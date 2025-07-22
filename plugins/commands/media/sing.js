@@ -1,6 +1,5 @@
 import ytSearch from "yt-search";
 import axios from "axios";
-import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
 
@@ -8,7 +7,7 @@ const config = {
   name: "sing",
   aliases: ["music", "song"],
   version: "1.0.2",
-  description: "Search and send MP3 song from YouTube",
+  description: "Search and play MP3 song from YouTube",
   usage: "<song name>",
   credits: "ArYAN",
   cooldown: 5,
@@ -27,10 +26,18 @@ const langData = {
 };
 
 async function downloadFile(url, filePath) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Download request failed");
-  const buffer = await res.buffer();
-  fs.writeFileSync(filePath, buffer);
+  const writer = fs.createWriteStream(filePath);
+  const response = await axios({
+    method: "GET",
+    url,
+    responseType: "stream"
+  });
+
+  response.data.pipe(writer);
+  return new Promise((resolve, reject) => {
+    writer.on("finish", resolve);
+    writer.on("error", reject);
+  });
 }
 
 async function playAudio({ message, song, getLang }) {
@@ -43,7 +50,7 @@ async function playAudio({ message, song, getLang }) {
 
     const res = await axios.get(apiUrl);
     const dlUrl = res.data?.downloadUrl;
-    if (!dlUrl) throw new Error("No download URL");
+    if (!dlUrl) throw new Error("Missing download URL");
 
     await downloadFile(dlUrl, filePath);
 
@@ -56,7 +63,7 @@ async function playAudio({ message, song, getLang }) {
   } catch (err) {
     console.error("Play error:", err);
     await message.react("❌");
-    await message.reply(getLang("downloadError"));
+    return message.reply(getLang("downloadError"));
   } finally {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
@@ -73,9 +80,7 @@ async function chooseSong({ message, eventData, getLang }) {
 
 async function onCall({ message, args, getLang }) {
   const query = args.join(" ").trim();
-  if (!query) {
-    return message.reply(getLang("noSong"));
-  }
+  if (!query) return message.reply(getLang("noSong"));
 
   try {
     const results = await ytSearch(query);

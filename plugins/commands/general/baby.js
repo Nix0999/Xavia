@@ -5,14 +5,16 @@ const baseApiUrl = async () => "https://noobs-api.top/dipto";
 export const config = {
   name: "bby",
   aliases: ["baby", "bbe", "babe", "sam"],
-  version: "7.0.0",
-  description: "Better than all simi-style bots.",
+  version: "0.0.1",
+  description: "simi-style bots.",
   usage: "{pn} [message] | teach/remove/edit/msg/list",
   cooldown: 3,
   permissions: 0,
   credits: "ArYAN",
-  category: "chat",
+  category: "chat"
 };
+
+const replyMap = new Map();
 
 export async function onCall({ message, args, event, usersData }) {
   const link = `${await baseApiUrl()}/baby`;
@@ -20,8 +22,8 @@ export async function onCall({ message, args, event, usersData }) {
   const input = args.join(" ").toLowerCase();
 
   if (!args[0]) {
-    const ran = ["Bolo baby", "hum", "type help baby", "type !baby hi"];
-    return message.reply(ran[Math.floor(Math.random() * ran.length)]);
+    replyMap.set(message.threadID, { senderID: uid });
+    return message.reply("Hmm bolo bby... 😚");
   }
 
   try {
@@ -90,13 +92,11 @@ export async function onCall({ message, args, event, usersData }) {
       }
     }
 
-    // Name-related auto response
     if (["amar name ki", "amr nam ki", "amar nam ki", "amr name ki", "whats my name"].some(p => input.includes(p))) {
       const res = await axios.get(`${link}?text=amar name ki&senderID=${uid}&key=intro`);
       return message.reply(res.data.reply);
     }
 
-    // Default reply
     const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${uid}&font=1`);
     return message.reply(res.data.reply);
   } catch (err) {
@@ -106,24 +106,42 @@ export async function onCall({ message, args, event, usersData }) {
 }
 
 export async function onChat({ message, event }) {
-  const triggers = ["baby", "bby", "bot", "jan", "babu", "janu"];
   const input = event.body?.toLowerCase();
+  const threadID = event.threadID;
+  const senderID = event.senderID;
+  const link = `${await baseApiUrl()}/baby`;
+
   if (!input) return;
-  const match = triggers.find(t => input.startsWith(t));
-  if (!match) return;
+
+  // Handle reply-based message
+  const pendingReply = replyMap.get(threadID);
+  if (pendingReply && pendingReply.senderID === senderID) {
+    replyMap.delete(threadID);
+    try {
+      const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${senderID}&font=1`);
+      return message.reply(res.data.reply);
+    } catch (err) {
+      console.error("[BBY REPLY CHAT]", err);
+      return message.reply("❌ Error processing reply.");
+    }
+  }
+
+  const triggers = ["baby", "bby", "bot", "jan", "babu", "janu"];
+  const matched = triggers.some(t => input.startsWith(t));
+  if (!matched) return;
 
   const trimmed = input.replace(/^\S+\s*/, "");
-  const link = `${await baseApiUrl()}/baby`;
 
   try {
     if (!trimmed) {
+      replyMap.set(threadID, { senderID });
       const replies = ["😚", "Yes 😀, I am here", "What's up?", "Bolo jaan ki korte panmr jonno"];
       return message.reply(replies[Math.floor(Math.random() * replies.length)]);
     }
-    const res = await axios.get(`${link}?text=${encodeURIComponent(trimmed)}&senderID=${event.senderID}&font=1`);
+    const res = await axios.get(`${link}?text=${encodeURIComponent(trimmed)}&senderID=${senderID}&font=1`);
     return message.reply(res.data.reply);
   } catch (err) {
     console.error("[BBY CHAT]", err);
-    return message.reply("Error: " + err.message);
+    return message.reply("❌ Error occurred.");
   }
 }

@@ -17,13 +17,13 @@
     "LANGUAGE": "en_US",
     "LOG_LEVEL": 1,
     "MODERATORS": [
-        "MOD_UID"
+        "61575494292207"
     ],
     "ABSOLUTES": [
-        "AB_UID"
+        "61575494292207"
     ],
-    "NAME": "NAME_OF_BOT",
-    "PREFIX": "PREFIX_HERE",
-    "timezone": "Asia/Manila",
+    "NAME": "Nix Bot",
+    "PREFIX": "×",
+    "timezone": "Asia/Dhaka",
     "REFRESH": "43200000"
 }

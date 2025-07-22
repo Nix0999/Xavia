@@ -1,21 +1,17 @@
 import axios from "axios";
 
-if (typeof ReadableStream === "undefined") {
-  globalThis.ReadableStream = require("stream/web").ReadableStream;
-}
-
 const baseApiUrl = async () => "https://noobs-api.top/dipto";
 
 export const config = {
   name: "bby",
   aliases: ["baby", "bbe", "babe", "sam"],
-  version: "0.0.2",
-  description: "simi-style bot for chatting.",
+  version: "7.0.1",
+  description: "Better than all simi-style bots.",
   usage: "{pn} [message] | teach/remove/edit/msg/list",
   cooldown: 3,
   permissions: 0,
   credits: "ArYAN",
-  category: "chat"
+  category: "chat",
 };
 
 const replyMap = new Map();
@@ -27,7 +23,8 @@ export async function onCall({ message, args, event, usersData }) {
 
   if (!args[0]) {
     replyMap.set(message.threadID, { senderID: uid });
-    return message.reply("Hmm bolo bby... 😚");
+    const ran = ["Bolo baby", "Hum bolo", "Type help baby", "Hmm?"];
+    return message.reply(ran[Math.floor(Math.random() * ran.length)]);
   }
 
   try {
@@ -45,56 +42,73 @@ export async function onCall({ message, args, event, usersData }) {
 
     if (args[0] === "list") {
       const res = await axios.get(`${link}?list=all`);
-      const teacherData = res.data.teacher?.teacherList || [];
-      const totalTeach = res.data.length || 0;
       if (args[1] === "all") {
-        const limit = parseInt(args[2]) || 50;
-        const sliced = teacherData.slice(0, limit);
-        const out = await Promise.all(
-          sliced.map(async (entry, i) => {
-            const uid = Object.keys(entry)[0];
-            const count = entry[uid];
-            const name = (await usersData.getName(uid).catch(() => uid));
-            return `${i + 1}. ${name}: ${count}`;
+        const limit = parseInt(args[2]) || 100;
+        const data = res.data.teacher.teacherList.slice(0, limit);
+        const teachers = await Promise.all(
+          data.map(async (t) => {
+            const uid = Object.keys(t)[0];
+            const count = t[uid];
+            const name = (await usersData.getName(uid).catch(() => null)) || uid;
+            return { name, count };
           })
         );
-        return message.reply(`📚 Total Teach = ${totalTeach}\n👑 Teachers:\n${out.join("\n")}`);
+        teachers.sort((a, b) => b.count - a.count);
+        const out = teachers.map((t, i) => `${i + 1}/ ${t.name}: ${t.count}`).join("\n");
+        return message.reply(`Total Teach = ${res.data.length}\n👑 Teachers:\n${out}`);
       } else {
-        return message.reply(`📚 Total Teach = ${totalTeach}\n🗂 Total Response = ${res.data.responseLength || 0}`);
+        return message.reply(`Total Teach = ${res.data.length || "N/A"}\nTotal Response = ${res.data.responseLength || "N/A"}`);
       }
     }
 
     if (args[0] === "msg") {
       const query = input.replace("msg ", "");
       const res = await axios.get(`${link}?list=${encodeURIComponent(query)}`);
-      return message.reply(`"${query}" = ${res.data.data}`);
+      return message.reply(`Message "${query}" = ${res.data.data}`);
     }
 
     if (args[0] === "edit") {
       const parts = input.split(/\s*-\s*/);
       if (parts.length < 2) return message.reply("❌ Invalid format!");
-      const res = await axios.get(`${link}?edit=${encodeURIComponent(parts[0])}&replace=${encodeURIComponent(parts[1])}&senderID=${uid}`);
+      const res = await axios.get(`${link}?edit=${encodeURIComponent(args[1])}&replace=${encodeURIComponent(parts[1])}&senderID=${uid}`);
       return message.reply(`Changed: ${res.data.message}`);
     }
 
     if (args[0] === "teach") {
-      const [key, value] = input.replace("teach ", "").split(/\s*-\s*/);
-      if (!value) return message.reply("❌ Invalid format!");
+      const type = args[1];
+      const [keyPart, valuePart] = input.replace("teach ", "").split(/\s*-\s*/);
+      if (!valuePart) return message.reply("❌ Invalid format!");
 
-      const res = await axios.get(`${link}?teach=${encodeURIComponent(key)}&reply=${encodeURIComponent(value)}&senderID=${uid}&threadID=${message.threadID}`);
-      const teacher = (await usersData.get(res.data.teacher)).name;
-      return message.reply(`✅ Taught!\n👤 Teacher: ${teacher}\n📚 Total Teaches: ${res.data.teachs}`);
+      if (type === "react") {
+        const res = await axios.get(`${link}?teach=${encodeURIComponent(keyPart.replace("react ", ""))}&react=${encodeURIComponent(valuePart)}`);
+        return message.reply(`✅ Reactions added: ${res.data.message}`);
+      } else if (type === "amar") {
+        const res = await axios.get(`${link}?teach=${encodeURIComponent(keyPart)}&senderID=${uid}&reply=${encodeURIComponent(valuePart)}&key=intro`);
+        return message.reply(`✅ Replies added: ${res.data.message}`);
+      } else {
+        const res = await axios.get(`${link}?teach=${encodeURIComponent(keyPart)}&reply=${encodeURIComponent(valuePart)}&senderID=${uid}&threadID=${message.threadID}`);
+        const teacher = (await usersData.get(res.data.teacher)).name;
+        return message.reply(`✅ Replies added: ${res.data.message}\n👤 Teacher: ${teacher}\n📚 Total: ${res.data.teachs}`);
+      }
     }
 
+    // Name query
+    if (["amar name ki", "amr nam ki", "amar nam ki", "amr name ki", "whats my name"].some(p => input.includes(p))) {
+      const res = await axios.get(`${link}?text=amar name ki&senderID=${uid}&key=intro`);
+      return message.reply(res.data.reply);
+    }
+
+    // Default reply
     const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${uid}&font=1`);
     return message.reply(res.data.reply);
   } catch (err) {
     console.error("[BBY CMD]", err);
-    return message.reply("❌ Error occurred while processing.");
+    return message.reply("❌ An error occurred. Try again later.");
   }
 }
 
 export async function onChat({ message, event }) {
+  const triggers = ["baby", "bby", "bot", "jan", "babu", "janu"];
   const input = event.body?.toLowerCase();
   const threadID = event.threadID;
   const senderID = event.senderID;
@@ -102,31 +116,34 @@ export async function onChat({ message, event }) {
 
   if (!input) return;
 
-  const pendingReply = replyMap.get(threadID);
-  if (pendingReply && pendingReply.senderID === senderID) {
+  // reply-based trigger
+  const pending = replyMap.get(threadID);
+  if (pending && pending.senderID === senderID) {
     replyMap.delete(threadID);
     try {
       const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${senderID}&font=1`);
       return message.reply(res.data.reply);
     } catch (err) {
-      return message.reply("❌ Error processing reply.");
+      console.error("[BBY REPLY]", err);
+      return message.reply("❌ Couldn't process your reply.");
     }
   }
 
-  const triggers = ["baby", "bby", "bot", "jan", "babu", "janu"];
-  if (!triggers.some(t => input.startsWith(t))) return;
+  const match = triggers.find(t => input.startsWith(t));
+  if (!match) return;
 
   const trimmed = input.replace(/^\S+\s*/, "");
 
   try {
     if (!trimmed) {
       replyMap.set(threadID, { senderID });
-      const replies = ["😚", "Yes baby 🥺", "Bolo jaan 🥰", "Ki holo bolo to 🤭"];
+      const replies = ["😚", "Yes 😀, I am here", "What's up?", "Bolo jaan ki korte panmr jonno"];
       return message.reply(replies[Math.floor(Math.random() * replies.length)]);
     }
     const res = await axios.get(`${link}?text=${encodeURIComponent(trimmed)}&senderID=${senderID}&font=1`);
     return message.reply(res.data.reply);
   } catch (err) {
+    console.error("[BBY CHAT]", err);
     return message.reply("❌ Error occurred.");
   }
 }

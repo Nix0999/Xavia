@@ -19,7 +19,7 @@ const langData = {
 🔢 𝗧𝗼𝘁𝗮𝗹: {total} 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀
 💡 𝗨𝘀𝗲 \`{syntax} [command]\` 𝗳𝗼𝗿 𝗱𝗲𝘁𝗮𝗶𝗹𝘀.`,
     "help.commandNotExists": "❌ The command `{command}` doesn't exist!",
-    "help.commandDetails": `📖✨ 𝗖𝗼𝗺𝗺𝗮𝗻𝗱 𝗗𝗲𝘁𝗮𝗶𝗹𝘀 ✨📖
+    "help.commandDetails": `📖✨ 𝗗𝗲𝘁𝗮𝗶𝗹𝘀 ✨📖
 
 🔹 𝗡𝗮𝗺𝗲: {name}
 🔸 𝗔𝗹𝗶𝗮𝘀𝗲𝘀: {aliases}
@@ -39,7 +39,7 @@ const langData = {
 async function onCall({ message, args, getLang, commands = new Map(), prefix }) {
   const commandName = args[0]?.toLowerCase();
 
-  // No specific command provided, show list
+  // If no command name is given, show full list
   if (!commandName) {
     const categories = {};
 
@@ -62,7 +62,7 @@ async function onCall({ message, args, getLang, commands = new Map(), prefix }) 
     );
   }
 
-  // Try to find the command by name or alias
+  // Search for command by name or alias
   const command =
     commands.get(commandName) ||
     [...commands.values()].find(cmd => cmd.aliases?.map(a => a.toLowerCase()).includes(commandName));

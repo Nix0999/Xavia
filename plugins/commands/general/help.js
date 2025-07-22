@@ -12,7 +12,7 @@ const config = {
 
 const langData = {
   "en_US": {
-    "help.list": `📜✨ 𝗛𝗲𝗿𝗲 ✨📜
+    "help.list": `📜✨ 𝗛𝗲𝗿𝗲 𝗮𝗹𝗹 𝗰𝗺𝗱𝘀✨📜
 
 {list}
 
@@ -44,10 +44,11 @@ async function onCall({ message, args, getLang, commands = new Map(), prefix }) 
 
   if (!commandName) {
     const categories = {};
+
     for (const command of commands.values()) {
       const category = command.category || "Others";
       if (!categories[category]) categories[category] = [];
-      categories[category].push(`🔸 ${command.name}`);
+      categories[category].push(`🔹 ${prefix}${command.name}`);
     }
 
     const list = Object.entries(categories)

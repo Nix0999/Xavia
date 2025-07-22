@@ -7,8 +7,8 @@ import path from "path";
 const config = {
   name: "sing",
   aliases: ["music", "song"],
-  version: "1.0.0",
-  description: "Search and play a song in MP3 format",
+  version: "1.0.1",
+  description: "Search and play a song (mp3) from YouTube",
   usage: "<song name>",
   credits: "ArYAN",
   cooldown: 5,
@@ -19,10 +19,10 @@ const config = {
 const langData = {
   "en_US": {
     "noSong": "🚫 Please provide a song name (e.g. `sing Shape of You`).",
-    "notFound": "❌ No results found for that song.",
+    "notFound": "❌ No results found.",
     "downloading": "⏳ Downloading \"{title}\"...",
     "sendFail": "❌ Failed to send audio.",
-    "downloadError": "❌ Failed to download the song."
+    "downloadError": "❌ Download failed."
   },
   "vi_VN": {
     "noSong": "🚫 Vui lòng nhập tên bài hát (ví dụ: `sing Em của ngày hôm qua`).",
@@ -40,38 +40,81 @@ const langData = {
   }
 };
 
+async function downloadFile(url, filePath) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch file: ${response.status}`);
+  const buffer = await response.buffer();
+  fs.writeFileSync(filePath, buffer);
+}
+
+async function playAudio({ message, song, getLang }) {
+  const { title, videoId } = song;
+  const apiUrl = `https://xyz-nix.vercel.app/aryan/youtube?id=${videoId}&type=audio&apikey=itzaryan`;
+
+  message.react("⏳");
+
+  const filePath = path.join(global.cachePath, `_ytaudio_${Date.now()}.mp3`);
+  try {
+    const res = await axios.get(apiUrl);
+    const downloadUrl = res.data?.downloadUrl;
+    if (!downloadUrl) throw new Error("Missing download URL");
+
+    await message.reply(getLang("downloading", { title }));
+    await downloadFile(downloadUrl, filePath);
+
+    if (!fs.existsSync(filePath)) throw new Error("Download failed");
+
+    await message.reply({
+      body: `🎵 ${title}`,
+      attachment: fs.createReadStream(filePath)
+    });
+
+    message.react("✅");
+  } catch (err) {
+    console.error(err);
+    message.react("❌");
+    return message.reply(getLang("downloadError"));
+  } finally {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+}
+
+async function chooseSong({ message, eventData, getLang }) {
+  const { songs } = eventData;
+  const index = parseInt(message.body) - 1;
+  if (isNaN(index) || index < 0 || index >= songs.length)
+    return message.reply(getLang("notFound"));
+
+  await playAudio({ message, song: songs[index], getLang });
+}
+
 async function onCall({ message, args, getLang }) {
   const query = args.join(" ");
   if (!query) return message.reply(getLang("noSong"));
 
   try {
-    const search = await ytSearch(query);
-    if (!search?.videos?.length) return message.reply(getLang("notFound"));
+    const results = await ytSearch(query);
+    const videos = results.videos?.slice(0, 6);
 
-    const video = search.videos[0];
-    const downloadUrl = `https://xyz-nix.vercel.app/aryan/youtube?id=${video.videoId}&type=audio&apikey=itzaryan`;
+    if (!videos?.length) return message.reply(getLang("notFound"));
 
-    await message.reply(getLang("downloading", { title: video.title }));
+    const formattedList = videos
+      .map((v, i) => `${i + 1}. ${v.title} (${v.timestamp})`)
+      .join("\n\n");
 
-    const { data } = await axios.get(downloadUrl);
-    if (!data?.downloadUrl) return message.reply(getLang("downloadError"));
+    const replyMsg = await message.reply(
+      `🎶 Choose a song (reply with number):\n\n${formattedList}`
+    );
 
-    const res = await fetch(data.downloadUrl);
-    if (!res.ok) return message.reply(getLang("downloadError"));
-
-    const buffer = await res.buffer();
-    const filename = `${video.title}.mp3`.replace(/[\\/:"*?<>|]+/g, "");
-    const filePath = path.join("/tmp", filename);
-    fs.writeFileSync(filePath, buffer);
-
-    await message.reply({
-      body: `🎵 ${video.title}`,
-      attachment: fs.createReadStream(filePath)
+    return replyMsg.addReplyEvent({
+      callback: chooseSong,
+      songs: videos.map(v => ({
+        title: v.title,
+        videoId: v.videoId
+      }))
     });
-
-    fs.unlinkSync(filePath);
   } catch (err) {
-    console.error("Sing Command Error:", err);
+    console.error("Sing command error:", err);
     return message.reply(getLang("sendFail"));
   }
 }

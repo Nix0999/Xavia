@@ -7,12 +7,12 @@ const config = {
   version: "1.0.4",
   description: "Show all commands or command details",
   usage: "[command] (optional)",
-  credits: "XaviaTeam (Styled by ChatGPT)"
+  credits: "XaviaTeam"
 };
 
 const langData = {
   "en_US": {
-    "help.list": `📜𝗛𝗲𝗿𝗲 𝗮𝗹𝗹 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀📜
+    "help.list": `📜✨ 𝗛𝗲𝗿𝗲 ✨📜
 
 {list}
 
@@ -39,7 +39,7 @@ const langData = {
 import fs from "fs";
 import path from "path";
 
-async function onCall({ message, args, getLang, commands, prefix }) {
+async function onCall({ message, args, getLang, commands = new Map(), prefix }) {
   const commandName = args[0]?.toLowerCase();
 
   if (!commandName) {
@@ -63,7 +63,8 @@ async function onCall({ message, args, getLang, commands, prefix }) {
     );
   }
 
-  const command = commands.get(commandName) ||
+  const command =
+    commands.get(commandName) ||
     [...commands.values()].find(cmd => cmd.aliases?.includes(commandName));
 
   if (!command) {
@@ -84,7 +85,7 @@ async function onCall({ message, args, getLang, commands, prefix }) {
       permissions,
       category,
       cooldown: (command.cooldown || 3) + "s",
-      credits: "Team Xavia || Nix"
+      credits: "Nix"
     })
   );
 }

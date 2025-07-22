@@ -120,7 +120,7 @@ async function onCall({ message, args, getLang, userPermissions, prefix }) {
             permissions: command.permissions.map(p => getLang(String(p))).join(", "),
             category: command.category,
             cooldown: command.cooldown || 3,
-            credits: command.credits || ""
+            credits: "Nix"
         }).replace(/^ +/gm, ''));
     }
 }

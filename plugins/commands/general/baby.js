@@ -5,7 +5,7 @@ const baseApiUrl = async () => "https://noobs-api.top/dipto";
 export const config = {
   name: "bby",
   aliases: ["baby", "bbe", "babe", "sam"],
-  version: "7.0.1",
+  version: "7.0.2",
   description: "Better than all simi-style bots.",
   usage: "{pn} [message] | teach/remove/edit/msg/list",
   cooldown: 3,
@@ -14,7 +14,7 @@ export const config = {
   category: "chat",
 };
 
-const replyMap = new Map();
+const replyContext = new Map(); // For tracking reply sessions
 
 export async function onCall({ message, args, event, usersData }) {
   const link = `${await baseApiUrl()}/baby`;
@@ -22,12 +22,14 @@ export async function onCall({ message, args, event, usersData }) {
   const input = args.join(" ").toLowerCase();
 
   if (!args[0]) {
-    replyMap.set(message.threadID, { senderID: uid });
-    const ran = ["Bolo baby", "Hum bolo", "Type help baby", "Hmm?"];
-    return message.reply(ran[Math.floor(Math.random() * ran.length)]);
+    // Start reply session
+    replyContext.set(message.threadID, uid);
+    const replies = ["😚", "Yes 😀, I am here", "What's up?", "Bolo jaan, ki korte chao?"];
+    return message.reply(replies[Math.floor(Math.random() * replies.length)]);
   }
 
   try {
+    // --- All admin commands (teach, remove, list etc) ---
     if (args[0] === "remove") {
       const query = input.replace("remove ", "");
       const res = await axios.get(`${link}?remove=${encodeURIComponent(query)}&senderID=${uid}`);
@@ -92,13 +94,13 @@ export async function onCall({ message, args, event, usersData }) {
       }
     }
 
-    // Name query
+    // Name auto-response
     if (["amar name ki", "amr nam ki", "amar nam ki", "amr name ki", "whats my name"].some(p => input.includes(p))) {
       const res = await axios.get(`${link}?text=amar name ki&senderID=${uid}&key=intro`);
       return message.reply(res.data.reply);
     }
 
-    // Default reply
+    // Default AI reply
     const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${uid}&font=1`);
     return message.reply(res.data.reply);
   } catch (err) {
@@ -108,42 +110,43 @@ export async function onCall({ message, args, event, usersData }) {
 }
 
 export async function onChat({ message, event }) {
-  const triggers = ["baby", "bby", "bot", "jan", "babu", "janu"];
+  const triggers = ["bby", "baby", "bot", "jan", "babu", "janu"];
   const input = event.body?.toLowerCase();
   const threadID = event.threadID;
   const senderID = event.senderID;
+
   const link = `${await baseApiUrl()}/baby`;
 
   if (!input) return;
 
-  // reply-based trigger
-  const pending = replyMap.get(threadID);
-  if (pending && pending.senderID === senderID) {
-    replyMap.delete(threadID);
+  // REPLY mode
+  if (replyContext.has(threadID) && replyContext.get(threadID) === senderID) {
     try {
       const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${senderID}&font=1`);
       return message.reply(res.data.reply);
     } catch (err) {
-      console.error("[BBY REPLY]", err);
-      return message.reply("❌ Couldn't process your reply.");
+      console.error("[BBY REPLY ERROR]", err);
+      return message.reply("❌ Couldn’t reply properly.");
     }
   }
 
-  const match = triggers.find(t => input.startsWith(t));
-  if (!match) return;
+  // Check for trigger
+  const matched = triggers.find(t => input.startsWith(t));
+  if (!matched) return;
 
   const trimmed = input.replace(/^\S+\s*/, "");
 
   try {
     if (!trimmed) {
-      replyMap.set(threadID, { senderID });
-      const replies = ["😚", "Yes 😀, I am here", "What's up?", "Bolo jaan ki korte panmr jonno"];
-      return message.reply(replies[Math.floor(Math.random() * replies.length)]);
+      replyContext.set(threadID, senderID); // Enable reply mode
+      const ran = ["😚", "Yes babu?", "Bolo jaan 🥰", "Hmm bolo", "Ami ekhane achi ❤️"];
+      return message.reply(ran[Math.floor(Math.random() * ran.length)]);
+    } else {
+      const res = await axios.get(`${link}?text=${encodeURIComponent(trimmed)}&senderID=${senderID}&font=1`);
+      return message.reply(res.data.reply);
     }
-    const res = await axios.get(`${link}?text=${encodeURIComponent(trimmed)}&senderID=${senderID}&font=1`);
-    return message.reply(res.data.reply);
   } catch (err) {
-    console.error("[BBY CHAT]", err);
+    console.error("[BBY TRIGGER ERROR]", err);
     return message.reply("❌ Error occurred.");
   }
 }

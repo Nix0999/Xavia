@@ -12,82 +12,139 @@ const config = {
 
 const langData = {
   "en_US": {
-    "help.list": `📜✨ 𝗛𝗲𝗿𝗲 𝗮𝗹𝗹 𝗰𝗺𝗱𝘀✨📜
+    "help.commandNotExists": "Command '{command}' does not exist.",
+    "help.commandDetails": `
+----- Command Info -----
 
-{list}
-
-🔢 𝗧𝗼𝘁𝗮𝗹: {total} 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀
-💡 𝗨𝘀𝗲 \`{syntax} [command]\` 𝗳𝗼𝗿 𝗱𝗲𝘁𝗮𝗶𝗹𝘀.`,
-    "help.commandNotExists": "❌ The command `{command}` doesn't exist!",
-    "help.commandDetails": `📖✨ 𝗗𝗲𝘁𝗮𝗶𝗹𝘀 ✨📖
-
-🔹 𝗡𝗮𝗺𝗲: {name}
-🔸 𝗔𝗹𝗶𝗮𝘀𝗲𝘀: {aliases}
-📦 𝗩𝗲𝗿𝘀𝗶𝗼𝗻: {version}
-📝 𝗗𝗲𝘀𝗰𝗿𝗶𝗽𝘁𝗶𝗼𝗻: {description}
-📚 𝗨𝘀𝗮𝗴𝗲: {usage}
-🔐 𝗣𝗲𝗿𝗺𝗶𝘀𝘀𝗶𝗼𝗻𝘀: {permissions}
-🗂️ 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆: {category}
-⏱️ 𝗖𝗼𝗼𝗹𝗱𝗼𝘄𝗻: {cooldown}
-👑 𝗖𝗿𝗲𝗱𝗶𝘁𝘀: {credits}`
+Name        : {name}
+Aliases     : {aliases}
+Version     : {version}
+Description : {description}
+Usage       : {usage}
+Permissions : {permissions}
+Category    : {category}
+Cooldown    : {cooldown}s
+Credits     : {credits}
+`,
+    "0": "Member",
+    "1": "Group Admin",
+    "2": "Bot Admin"
   },
-  "0": "👤 Member",
-  "1": "🛡️ Group Admin",
-  "2": "🤖 Bot Admin"
+  "vi_VN": {
+    "help.commandNotExists": "Lệnh '{command}' không tồn tại.",
+    "help.commandDetails": `
+----- Thông tin lệnh -----
+
+Tên         : {name}
+Tên khác    : {aliases}
+Phiên bản   : {version}
+Mô tả       : {description}
+Cách dùng   : {usage}
+Quyền hạn   : {permissions}
+Thể loại    : {category}
+Thời gian chờ: {cooldown}s
+Người viết  : {credits}
+`,
+    "0": "Thành viên",
+    "1": "Quản trị nhóm",
+    "2": "Quản trị bot"
+  },
+  "ar_SY": {
+    "help.commandNotExists": "الأمر '{command}' غير موجود.",
+    "help.commandDetails": `
+----- معلومات الأمر -----
+
+الاسم        : {name}
+البدائل      : {aliases}
+الوصف        : {description}
+الاستخدام    : {usage}
+الصلاحيات    : {permissions}
+الفئة        : {category}
+الانتظار     : {cooldown}s
+الاعتمادات   : {credits}
+`,
+    "0": "عضو",
+    "1": "إدارة المجموعة",
+    "2": "ادارة البوت"
+  }
 };
 
-async function onCall({ message, args, getLang, commands = new Map(), prefix }) {
+function getCommandName(commandName) {
+  if (global.plugins.commandsAliases.has(commandName)) return commandName;
+
+  for (let [key, value] of global.plugins.commandsAliases) {
+    if (value.includes(commandName)) return key;
+  }
+
+  return null;
+}
+
+async function onCall({ message, args, getLang, userPermissions, prefix }) {
+  const { commandsConfig } = global.plugins;
+  const language = message?.thread?.data?.language || global.config.LANGUAGE || "en_US";
   const commandName = args[0]?.toLowerCase();
 
-  // If no command name is given, show full list
+  // Flat paginated command list
   if (!commandName) {
-    const categories = {};
+    const visibleCommands = [];
 
-    for (const command of commands.values()) {
-      const category = command.category || "Others";
-      if (!categories[category]) categories[category] = [];
-      categories[category].push(`🔹 ${prefix}${command.name}`);
+    for (const [key, cmd] of commandsConfig.entries()) {
+      if (cmd.isHidden) continue;
+      if (cmd.isAbsolute && !global.config?.ABSOLUTES?.includes(message.senderID)) continue;
+      if (!cmd.permissions?.some(p => userPermissions.includes(p))) continue;
+
+      visibleCommands.push(key);
     }
 
-    const list = Object.entries(categories)
-      .map(([category, cmds]) => `📁 ${category.toUpperCase()}\n${cmds.join("\n")}`)
-      .join("\n\n");
+    // Sort alphabetically
+    visibleCommands.sort();
+
+    const perPage = 25;
+    const totalPages = Math.ceil(visibleCommands.length / perPage);
+    const currentPage = Math.max(1, parseInt(args[1]) || 1);
+    const pageCommands = visibleCommands.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+    const list = pageCommands.map(cmd => `● ${cmd}`).join("\n");
 
     return message.reply(
-      getLang("help.list", {
-        list,
-        total: commands.size,
-        syntax: prefix + config.name
-      })
+`${list}
+
+Page: [${currentPage}/${totalPages}]
+Total commands: ${visibleCommands.length}
+Use ${prefix}help <name> for more info`
     );
   }
 
-  // Search for command by name or alias
-  const command =
-    commands.get(commandName) ||
-    [...commands.values()].find(cmd => cmd.aliases?.map(a => a.toLowerCase()).includes(commandName));
+  // Command details
+  const resolved = getCommandName(commandName);
+  const command = commandsConfig.get(resolved);
 
-  if (!command) {
+  if (!command)
     return message.reply(getLang("help.commandNotExists", { command: commandName }));
-  }
 
-  const aliases = command.aliases?.join(", ") || "None";
-  const permissions = getLang[String(command.permission || 0)] || "Unknown";
-  const category = command.category || "Others";
+  if (command.isHidden || (command.isAbsolute && !global.config?.ABSOLUTES?.includes(message.senderID)))
+    return message.reply(getLang("help.commandNotExists", { command: commandName }));
+
+  if (!command.permissions?.some(p => userPermissions.includes(p)))
+    return message.reply(getLang("help.commandNotExists", { command: commandName }));
 
   return message.reply(
     getLang("help.commandDetails", {
       name: command.name,
-      aliases,
-      version: command.version || "1.0",
-      description: command.description || "No description provided",
-      usage: prefix + command.name + " " + (command.usage || ""),
-      permissions,
-      category,
-      cooldown: (command.cooldown || 3) + "s",
+      aliases: command.aliases?.join(", ") || "None",
+      version: command.version || "1.0.0",
+      description: command.description || "No description",
+      usage: `${prefix}${command.name} ${command.usage || ""}`.trim(),
+      permissions: command.permissions.map(p => getLang(String(p))).join(", "),
+      category: command.category || "Others",
+      cooldown: command.cooldown || 3,
       credits: "Nix"
-    })
+    }).replace(/^ +/gm, "")
   );
 }
 
-export { config, langData, onCall };
+export default {
+  config,
+  langData,
+  onCall
+};

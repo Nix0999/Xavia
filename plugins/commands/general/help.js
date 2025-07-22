@@ -36,12 +36,10 @@ const langData = {
   "2": "🤖 Bot Admin"
 };
 
-import fs from "fs";
-import path from "path";
-
 async function onCall({ message, args, getLang, commands = new Map(), prefix }) {
   const commandName = args[0]?.toLowerCase();
 
+  // No specific command provided, show list
   if (!commandName) {
     const categories = {};
 
@@ -64,9 +62,10 @@ async function onCall({ message, args, getLang, commands = new Map(), prefix }) 
     );
   }
 
+  // Try to find the command by name or alias
   const command =
     commands.get(commandName) ||
-    [...commands.values()].find(cmd => cmd.aliases?.includes(commandName));
+    [...commands.values()].find(cmd => cmd.aliases?.map(a => a.toLowerCase()).includes(commandName));
 
   if (!command) {
     return message.reply(getLang("help.commandNotExists", { command: commandName }));

@@ -6,22 +6,21 @@ import path from "path";
 const config = {
   name: "sing",
   aliases: ["music", "song"],
-  version: "1.0.2",
-  description: "Search and play MP3 song from YouTube",
+  version: "1.0.3",
+  description: "Play song from YouTube as MP3",
   usage: "<song name>",
-  credits: "ArYAN",
   cooldown: 5,
   permissions: 0,
-  category: "Music"
+  credits: "ArYAN",
+  category: "music"
 };
 
 const langData = {
   "en_US": {
-    "noSong": "🚫 Please type a song name (e.g. `sing Shape of You`).",
-    "notFound": "❌ No results found.",
-    "downloading": "⏳ Downloading \"{title}\"...",
-    "sendFail": "❌ Could not send the audio.",
-    "downloadError": "❌ Couldn't download song."
+    "noSong": "❌ Please type a song name (e.g. `sing Shape of You`).",
+    "notFound": "⚠️ No song found.",
+    "downloading": "⏳ Downloading: {title}",
+    "error": "❌ Failed to download or send the song."
   }
 };
 
@@ -40,71 +39,41 @@ async function downloadFile(url, filePath) {
   });
 }
 
-async function playAudio({ message, song, getLang }) {
-  const apiUrl = `https://xyz-nix.vercel.app/aryan/youtube?id=${song.videoId}&type=audio&apikey=itzaryan`;
-  const filePath = path.join(global.cachePath, `_ytmp3_${Date.now()}.mp3`);
-
-  try {
-    await message.react("⏳");
-    await message.reply(getLang("downloading", { title: song.title }));
-
-    const res = await axios.get(apiUrl);
-    const dlUrl = res.data?.downloadUrl;
-    if (!dlUrl) throw new Error("Missing download URL");
-
-    await downloadFile(dlUrl, filePath);
-
-    await message.reply({
-      body: `🎧 ${song.title}`,
-      attachment: fs.createReadStream(filePath)
-    });
-
-    await message.react("✅");
-  } catch (err) {
-    console.error("Play error:", err);
-    await message.react("❌");
-    return message.reply(getLang("downloadError"));
-  } finally {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  }
-}
-
-async function chooseSong({ message, eventData, getLang }) {
-  const { songs } = eventData;
-  const index = parseInt(message.body) - 1;
-  if (isNaN(index) || index < 0 || index >= songs.length)
-    return message.reply(getLang("notFound"));
-
-  return playAudio({ message, song: songs[index], getLang });
-}
-
 async function onCall({ message, args, getLang }) {
-  const query = args.join(" ").trim();
-  if (!query) return message.reply(getLang("noSong"));
+  if (!args || args.length === 0) {
+    return message.reply(getLang("noSong"));
+  }
+
+  const query = args.join(" ");
 
   try {
-    const results = await ytSearch(query);
-    const videos = results.videos?.slice(0, 6);
+    const result = await ytSearch(query);
+    const video = result.videos[0];
 
-    if (!videos || videos.length === 0) {
+    if (!video) {
       return message.reply(getLang("notFound"));
     }
 
-    const list = videos
-      .map((v, i) => `${i + 1}. ${v.title} (${v.timestamp})`)
-      .join("\n\n");
+    const apiUrl = `https://xyz-nix.vercel.app/aryan/youtube?id=${video.videoId}&type=audio&apikey=itzaryan`;
+    const response = await axios.get(apiUrl);
 
-    const replyMsg = await message.reply(
-      `🎶 Choose a song to play (reply with number):\n\n${list}`
-    );
+    if (!response.data?.downloadUrl) {
+      return message.reply(getLang("error"));
+    }
 
-    return replyMsg.addReplyEvent({
-      callback: chooseSong,
-      songs: videos.map(v => ({ title: v.title, videoId: v.videoId }))
+    const filePath = path.join(global.cachePath, `song_${Date.now()}.mp3`);
+    await message.reply(getLang("downloading", { title: video.title }));
+    await downloadFile(response.data.downloadUrl, filePath);
+
+    await message.reply({
+      body: `🎵 ${video.title}`,
+      attachment: fs.createReadStream(filePath)
     });
+
+    fs.unlinkSync(filePath);
   } catch (err) {
-    console.error("Search error:", err);
-    return message.reply(getLang("sendFail"));
+    console.error("SING CMD ERROR:", err);
+    return message.reply(getLang("error"));
   }
 }
 
